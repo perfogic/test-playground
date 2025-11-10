@@ -84,14 +84,16 @@ pnpm --filter client dev
 ## ✅ Expected flow
 
 1. Enter a Solana block number in the frontend.
-2. The frontend calls the backend API:  
+2. The frontend calls the backend API, API already has lru cache to avoid spamming:  
    `GET /solana/tx-count?block=<block_number>`
 3. The backend queries Solana RPC and responds:
 
+```
    {
    "blockNumber": 357262054,
    "transactionCount": 1450
    }
+```
 
 ---
 
