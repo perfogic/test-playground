@@ -45,20 +45,25 @@ contract RatingSender_Test is Test {
             destGasLimit
         );
         assertTrue(messageId != bytes32(0));
-
         assertEq(sourceMailbox.lastDest(), ARB_DOMAIN);
         assertEq(
             address(uint160(uint256(sourceMailbox.lastRecipient()))),
             arbConsumer
         );
 
-        (address decodedBorrower, uint8 decodedScore, uint64 timestamp, uint256 nonce) = abi
-            .decode(sourceMailbox.lastBody(), (address, uint8, uint64, uint256));
+        (
+            address decodedBorrower,
+            uint8 decodedScore,
+            uint64 timestamp,
+            uint256 nonce
+        ) = abi.decode(
+                sourceMailbox.lastBody(),
+                (address, uint8, uint64, uint256)
+            );
         assertEq(decodedBorrower, borrower);
         assertEq(decodedScore, score);
         assertEq(nonce, 0);
         assertGt(timestamp, 0);
-
         assertEq(interchainGasPaymaster.lastDest(), ARB_DOMAIN);
         assertEq(interchainGasPaymaster.lastGas(), destGasLimit);
         assertEq(interchainGasPaymaster.lastRefund(), authorizedRater);
@@ -75,6 +80,7 @@ contract RatingSender_Test is Test {
 
         assertEq(ratingSender.borrowersNonce(borrower), 2);
 
+        // check last dispatched message
         (address decodedBorrower, , , uint256 nonce) = abi.decode(
             sourceMailbox.lastBody(),
             (address, uint8, uint64, uint256)
@@ -105,7 +111,12 @@ contract RatingSender_Test is Test {
 
         vm.prank(authorizedRater);
         vm.expectRevert(RatingSender.UnallowedDomain.selector);
-        ratingSender.dispatchRating(ARB_DOMAIN, address(0xC0FFEE), uint8(70), 0);
+        ratingSender.dispatchRating(
+            ARB_DOMAIN,
+            address(0xC0FFEE),
+            uint8(70),
+            0
+        );
     }
 
     function test_AdminSetters_RevertForNonOwner() public {

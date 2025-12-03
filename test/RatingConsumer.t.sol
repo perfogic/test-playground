@@ -90,11 +90,7 @@ contract RatingConsumer_UnitTest is Test {
             ratingTimestamp,
             uint64(1)
         );
-        deliverToConsumer(
-            ETH_DOMAIN,
-            originSenderBytes32,
-            initialPayload
-        );
+        deliverToConsumer(ETH_DOMAIN, originSenderBytes32, initialPayload);
 
         bytes memory replayPayload = abi.encode(
             borrower,
@@ -103,11 +99,7 @@ contract RatingConsumer_UnitTest is Test {
             uint64(2)
         );
         vm.expectRevert(RatingConsumer.InvalidRating.selector);
-        deliverToConsumer(
-            ETH_DOMAIN,
-            originSenderBytes32,
-            replayPayload
-        );
+        deliverToConsumer(ETH_DOMAIN, originSenderBytes32, replayPayload);
     }
 
     function test_Handle_RevertsWhenMessageIsStale() public {
