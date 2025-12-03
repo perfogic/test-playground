@@ -32,6 +32,8 @@ contract RatingSender {
     error InvalidAddress();
     error UnallowedDomain();
     error InvalidRating();
+    error InsufficientGasFee(uint256 required, uint256 provided);
+    error RefundFailed();
 
     // ============ Modifiers ============
     modifier onlyOwner() {
@@ -45,10 +47,16 @@ contract RatingSender {
     }
 
     // ============ Constructor ============
-    constructor(address _mailbox, address _igp, uint32 _domain) {
+    constructor(
+        address _mailbox,
+        address _igp,
+        uint32 _domain,
+        address _ratingConsumer
+    ) {
         mailbox = IMailbox(_mailbox);
         igp = IInterchainGasPaymaster(_igp);
         allowedDomains[_domain] = true;
+        ratingConsumerAddrs[_domain] = _ratingConsumer;
         owner = msg.sender;
     }
 
@@ -76,23 +84,32 @@ contract RatingSender {
         if (rating > 100) revert InvalidRating();
         if (borrower == address(0)) revert InvalidAddress();
 
+        uint256 gasFee = igp.quoteGasPayment(domain, gasLimit);
+        if (msg.value < gasFee) revert InsufficientGasFee(gasFee, msg.value);
+
         uint64 timestamp = uint64(block.timestamp);
         uint256 nonce = borrowersNonce[borrower];
 
         bytes memory message = abi.encode(borrower, rating, timestamp, nonce);
 
-        messageId = mailbox.dispatch{value: msg.value}(
+        messageId = mailbox.dispatch(
             domain,
             addressToBytes32(ratingConsumerAddrs[domain]),
             message
         );
 
-        igp.payForGas{value: msg.value}(
+        igp.payForGas{value: gasFee}(
             messageId,
             domain,
             gasLimit,
             msg.sender
         );
+
+        uint256 refund = msg.value - gasFee;
+        if (refund > 0) {
+            (bool success, ) = msg.sender.call{value: refund}("");
+            if (!success) revert RefundFailed();
+        }
 
         borrowersNonce[borrower] = nonce + 1;
 

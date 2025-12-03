@@ -24,10 +24,9 @@ contract RatingSender_Test is Test {
         ratingSender = new RatingSender(
             address(sourceMailbox),
             address(interchainGasPaymaster),
-            ARB_DOMAIN
+            ARB_DOMAIN,
+            arbConsumer
         );
-        vm.prank(contractOwner);
-        ratingSender.setConsumer(ARB_DOMAIN, arbConsumer);
         vm.prank(contractOwner);
         ratingSender.setRater(authorizedRater, true);
     }
@@ -35,10 +34,15 @@ contract RatingSender_Test is Test {
     function test_DispatchRating_PublishesMessageAndPaysGas() public {
         address borrower = address(0xBEEF);
         uint8 score = 90;
-        uint256 destGasLimit = 0;
+        uint256 destGasLimit = 150_000;
+        uint256 gasFee = destGasLimit * interchainGasPaymaster.pricePerGas();
+        uint256 extra = 0.1 ether;
+
+        vm.deal(authorizedRater, 10 ether);
+        uint256 startBalance = authorizedRater.balance;
 
         vm.prank(authorizedRater);
-        bytes32 messageId = ratingSender.dispatchRating(
+        bytes32 messageId = ratingSender.dispatchRating{value: gasFee + extra}(
             ARB_DOMAIN,
             borrower,
             score,
@@ -67,6 +71,8 @@ contract RatingSender_Test is Test {
         assertEq(interchainGasPaymaster.lastDest(), ARB_DOMAIN);
         assertEq(interchainGasPaymaster.lastGas(), destGasLimit);
         assertEq(interchainGasPaymaster.lastRefund(), authorizedRater);
+        assertEq(interchainGasPaymaster.lastPaid(), gasFee);
+        assertEq(authorizedRater.balance, startBalance - gasFee);
         assertEq(ratingSender.borrowersNonce(borrower), 1);
     }
 
@@ -117,6 +123,27 @@ contract RatingSender_Test is Test {
             uint8(70),
             0
         );
+    }
+
+    function test_DispatchRating_RevertsWhenGasFeeInsufficient() public {
+        uint256 gasLimit = 50_000;
+        uint256 needed = gasLimit * interchainGasPaymaster.pricePerGas();
+        vm.deal(authorizedRater, 1 ether);
+        vm.startPrank(authorizedRater);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RatingSender.InsufficientGasFee.selector,
+                needed,
+                needed - 1
+            )
+        );
+        ratingSender.dispatchRating{value: needed - 1}(
+            ARB_DOMAIN,
+            address(0xFA11),
+            uint8(70),
+            gasLimit
+        );
+        vm.stopPrank();
     }
 
     function test_AdminSetters_RevertForNonOwner() public {

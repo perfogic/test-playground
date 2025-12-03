@@ -30,7 +30,8 @@ contract E2E_Crosschain_Test is Test {
         ratingSender = new RatingSender(
             address(ethereumMailbox),
             address(e2eIgp),
-            ARB_DOMAIN
+            ARB_DOMAIN,
+            address(0) // placeholder; set real consumer below
         );
         ratingConsumer = new RatingConsumer(
             address(arbitrumMailbox),
